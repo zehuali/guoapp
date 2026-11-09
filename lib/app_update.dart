@@ -30,7 +30,7 @@ class AppUpdate {
 class AppUpdateService {
   AppUpdateService._();
 
-  static const _repo = 'wuzuo/guoapp';
+  static const _repo = 'zehuali/guoapp';
   static const _channel = MethodChannel('duanju/update');
   static const _userAgent = 'guoapp-updater';
 

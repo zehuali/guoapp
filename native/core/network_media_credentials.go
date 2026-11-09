@@ -15,6 +15,10 @@ type providerMediaCredentials struct {
 	referer   string
 	userAgent string
 	expires   time.Time
+	// playlistHeaders apply to .m3u8 requests and segmentHeaders to .ts/.m4s/.key
+	// requests on any host, mirroring the CDN header rules of the source site's player.
+	playlistHeaders map[string]string
+	segmentHeaders  map[string]string
 }
 
 type providerMediaCredentialsKey struct{}
@@ -50,7 +54,20 @@ func (credentials *providerMediaCredentials) apply(request *http.Request) error 
 		if !credentials.expires.IsZero() && !time.Now().Before(credentials.expires) {
 			return errors.New("播放凭证已过期，请重新解析播放")
 		}
-		request.Header.Set("Cookie", credentials.cookie)
+		if credentials.cookie != "" {
+			request.Header.Set("Cookie", credentials.cookie)
+		}
+	}
+	path := strings.ToLower(request.URL.Path)
+	var extra map[string]string
+	switch {
+	case strings.HasSuffix(path, ".m3u8"):
+		extra = credentials.playlistHeaders
+	case strings.HasSuffix(path, ".ts"), strings.HasSuffix(path, ".m4s"), strings.HasSuffix(path, ".key"):
+		extra = credentials.segmentHeaders
+	}
+	for name, value := range extra {
+		request.Header.Set(name, value)
 	}
 	return nil
 }
