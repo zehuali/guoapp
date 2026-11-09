@@ -92,7 +92,31 @@ func (d *Downloader) resolveHuangdouPlayback(ctx context.Context, client *huangd
 	data := huangdouDataMap(decoded)
 	media := firstNonEmpty(mapString(data, "m3u8"), mapString(data, "url"), mapString(data, "play_url"), mapString(data, "playUrl"))
 	if huangdouPreviewOnly(data, media, client.host) {
-		return providerMedia{}, &huangdouAPIError{code: "preview", message: "黄豆仅提供试看，未取得该集正片；不会把试看内容当作完整分集"}
+		alternate := ""
+		if client.d.cfg.HuangdouURL == "" {
+			switch strings.TrimRight(client.host, "/") {
+			case huangdouBaseURL:
+				alternate = huangdouBackupURL
+			case huangdouBackupURL:
+				alternate = huangdouBaseURL
+			}
+		}
+		if alternate != "" {
+			alternateClient := *client
+			alternateClient.host = alternate
+			var alternateDecoded any
+			if err := alternateClient.call(ctx, "/drama/play", map[string]any{"id": sourceID, "seq": strconv.Itoa(seq)}, &alternateDecoded); err == nil {
+				alternateData := huangdouDataMap(alternateDecoded)
+				alternateMedia := firstNonEmpty(mapString(alternateData, "m3u8"), mapString(alternateData, "url"), mapString(alternateData, "play_url"), mapString(alternateData, "playUrl"))
+				if !huangdouPreviewOnly(alternateData, alternateMedia, alternateClient.host) {
+					*client = alternateClient
+					data, media = alternateData, alternateMedia
+				}
+			}
+		}
+		if huangdouPreviewOnly(data, media, client.host) {
+			return providerMedia{}, &huangdouAPIError{code: "preview", message: "黄豆主备线路均未提供该集正片，仅有试看内容"}
+		}
 	}
 	if media == "" {
 		media = fmt.Sprintf("%s/api/drama/hls/%s/%d/play.m3u8?line=free", client.host, url.PathEscape(sourceID), seq)
