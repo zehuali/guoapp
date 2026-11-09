@@ -749,7 +749,7 @@ func parseHuangguoAIEpisodes(rawHTML, pageURL, sourceID string) []providerEpisod
 			idx = pathIndex
 		}
 		if idx <= 0 && belongsToDrama {
-			idx = 1
+			idx = nextUnusedEpisodeIndex(1, usedIndex)
 		}
 		if idx <= 0 {
 			continue
