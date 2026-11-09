@@ -164,10 +164,17 @@ func parseHuangguoRanking(body string, board rankingBoard) (rankingPage, error) 
 			seen, previous := map[string]bool{}, 0
 			for _, item := range graph.Items {
 				parsed, err := url.Parse(item.URL)
-				if err != nil || !strings.HasPrefix(parsed.Path, "/detail/") {
+				if err != nil {
 					return rankingPage{}, failure
 				}
-				id := strings.TrimSuffix(strings.TrimPrefix(parsed.Path, "/detail/"), "/")
+				// The site moved drama pages from /detail/{id}/ to /video/{id}/ (old paths 301 to new).
+				var id string
+				for _, prefix := range []string{"/video/", "/detail/"} {
+					if strings.HasPrefix(parsed.Path, prefix) {
+						id = strings.TrimSuffix(strings.TrimPrefix(parsed.Path, prefix), "/")
+						break
+					}
+				}
 				if !rankingSourceID.MatchString(id) || strings.TrimSpace(item.Name) == "" || item.Position <= previous || seen[id] {
 					return rankingPage{}, failure
 				}

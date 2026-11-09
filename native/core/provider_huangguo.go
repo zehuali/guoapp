@@ -1220,8 +1220,12 @@ func extractClosestAttr(raw string, start, end int, names ...string) string {
 }
 
 func titleNearDetail(raw, sourceID string) string {
-	needle := "/detail/" + sourceID
+	needle := "/video/" + sourceID + "/"
 	idx := strings.Index(raw, needle)
+	if idx < 0 {
+		needle = "/detail/" + sourceID
+		idx = strings.Index(raw, needle)
+	}
 	if idx < 0 {
 		return ""
 	}
