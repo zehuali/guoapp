@@ -750,6 +750,20 @@ func (engine *nativeEngine) nativeResolve(ctx context.Context, input nativeInput
 	if err != nil {
 		return nativePlan{}, err
 	}
+	source := canonicalProviderSource(input.Drama.Source)
+	if source == "" {
+		source = sourceFromDramaID(input.Drama.ID)
+	}
+	if isHuangguoProviderSource(source) {
+		variants := make([]string, 0, len(media.Variants))
+		for _, variant := range media.Variants {
+			variants = append(variants, fmt.Sprintf("%d:%s", variant.Quality, providerMediaFingerprint(variant.URL)))
+		}
+		media.Trace = fmt.Sprintf("source=%s dramaSource=%s chapterSource=%s title=%q episode=%s chapter=%s page=%s listed=%s resolved=%s variants=%v", source, input.Drama.Source, input.Chapter.Source, input.Drama.Title, input.Chapter.EpisodeString(input.Index), providerMediaFingerprint(input.Chapter.ID), providerMediaFingerprint(input.Chapter.PageURL), providerMediaFingerprint(input.Chapter.VideoURL), providerMediaFingerprint(media.URL), variants)
+		for index := range media.Variants {
+			media.Variants[index].Trace = media.Trace
+		}
+	}
 	choice := nativePlaybackChoices(media, input.Quality)
 	if series, video, valid := hongguoPlaybackIDs(task); valid {
 		choice.danmakuSeries, choice.danmakuVideo = series, video
