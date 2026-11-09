@@ -349,6 +349,7 @@ func (d *Downloader) resolveHuangjuMedia(ctx context.Context, task Task) (provid
 			return providerMedia{}, fmt.Errorf("获取黄剧播放列表失败：%w", err)
 		}
 		media.Duration = m3u8Duration(media.Playlist)
+		media.Variants = providerHLSVariants(media, media.URL, media.Playlist)
 	}
 	return media, nil
 }

@@ -18,6 +18,7 @@ type providerMedia struct {
 	HLSKey      []byte
 	CENCKey     []byte
 	Quality     int
+	Bitrate     int
 	Codec       string
 	Width       int
 	Height      int
@@ -42,6 +43,60 @@ func (d *Downloader) providerBaseURL(source string) string {
 		fallback = "https://d2pypzndaqisk.cloudfront.net"
 	}
 	return strings.TrimRight(firstNonEmpty(configured, fallback), "/")
+}
+
+func providerHLSVariants(media providerMedia, playlistURL, playlist string) []providerMedia {
+	base, err := url.Parse(playlistURL)
+	if err != nil {
+		return nil
+	}
+	lines := strings.Split(playlist, "\n")
+	var variants []providerMedia
+	for index, line := range lines {
+		if !strings.HasPrefix(strings.TrimSpace(line), "#EXT-X-STREAM-INF:") {
+			continue
+		}
+		attributes := nativeHLSAttributes(line)
+		var reference string
+		for next := index + 1; next < len(lines); next++ {
+			candidate := strings.TrimSpace(lines[next])
+			if candidate != "" && !strings.HasPrefix(candidate, "#") {
+				reference = candidate
+				break
+			}
+		}
+		if reference == "" {
+			continue
+		}
+		relative, err := url.Parse(reference)
+		if err != nil {
+			continue
+		}
+		resolved := base.ResolveReference(relative).String()
+		if !isProviderHTTPMediaURL(resolved) {
+			continue
+		}
+		variant := media
+		variant.URL = resolved
+		variant.Playlist = ""
+		variant.Variants = nil
+		if resolution := strings.Split(strings.ToLower(attributes["RESOLUTION"]), "x"); len(resolution) == 2 {
+			variant.Width, _ = strconv.Atoi(resolution[0])
+			variant.Height, _ = strconv.Atoi(resolution[1])
+		}
+		if variant.Height == 0 {
+			name := strings.ToLower(attributes["NAME"])
+			name = strings.TrimSuffix(name, "p")
+			variant.Height, _ = strconv.Atoi(name)
+		}
+		variant.Quality = variant.Height
+		variant.Bitrate, _ = strconv.Atoi(attributes["AVERAGE-BANDWIDTH"])
+		if variant.Bitrate == 0 {
+			variant.Bitrate, _ = strconv.Atoi(attributes["BANDWIDTH"])
+		}
+		variants = append(variants, variant)
+	}
+	return variants
 }
 
 func providerSourceForURL(raw string) string {
@@ -196,6 +251,7 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 		}
 		media.Playlist = playlist
 		media.URL = finalURL
+		media.Variants = providerHLSVariants(media, finalURL, playlist)
 	}
 	return media, nil
 }

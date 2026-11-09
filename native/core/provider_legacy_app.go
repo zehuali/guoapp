@@ -153,7 +153,9 @@ func (d *Downloader) resolveLegacyMedia(ctx context.Context, task Task) (provide
 			}
 			return providerMedia{}, err
 		}
-		return providerMedia{URL: finalURL, Playlist: playlist, Referer: legacyFrontendURL + "/", HLSKey: key, Duration: m3u8Duration(playlist)}, nil
+		media := providerMedia{URL: finalURL, Playlist: playlist, Referer: legacyFrontendURL + "/", HLSKey: key, Duration: m3u8Duration(playlist)}
+		media.Variants = providerHLSVariants(media, finalURL, playlist)
+		return media, nil
 	}
 	return providerMedia{}, errors.New("黄果旧 API 的播放会话已失效，请稍后重试")
 }

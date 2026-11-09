@@ -38,7 +38,12 @@ func nativePlaybackChoices(media providerMedia, quality int) nativePlaybackChoic
 			qualities[option.Quality] = true
 		}
 	}
-	sort.SliceStable(choice.media, func(i, j int) bool { return choice.media[i].Quality > choice.media[j].Quality })
+	sort.SliceStable(choice.media, func(i, j int) bool {
+		if choice.media[i].Quality != choice.media[j].Quality {
+			return choice.media[i].Quality > choice.media[j].Quality
+		}
+		return choice.media[i].Bitrate > choice.media[j].Bitrate
+	})
 	for value := range qualities {
 		choice.qualities = append(choice.qualities, value)
 	}
