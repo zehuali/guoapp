@@ -754,7 +754,9 @@ func parseHuangguoAIEpisodes(rawHTML, pageURL, sourceID string) []providerEpisod
 		if idx <= 0 {
 			continue
 		}
-		idx = nextUnusedEpisodeIndex(idx, usedIndex)
+		if usedIndex[idx] {
+			continue
+		}
 		usedIndex[idx] = true
 		episodes = append(episodes, providerEpisode{Key: key, Title: title, URL: fullURL, Index: idx})
 	}
