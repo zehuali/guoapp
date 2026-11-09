@@ -133,6 +133,14 @@ class _DetailScreenState extends State<DetailScreen> {
             ) ~/
             episodePageSize;
       });
+      if (merged.source == 'huangguoai') {
+        for (final episode in detail.episodes) {
+          final trace = episode.raw['debugTrace'] as String? ?? '';
+          print(
+            '[episode-map] drama=${merged.title} ${trace.isEmpty ? 'episode=${episode.number}' : trace}',
+          );
+        }
+      }
       widget.repository.catalogUpdates.publish(merged, retryCover: true);
       _focusPlayButton();
       unawaited(_supplement(merged, generation));

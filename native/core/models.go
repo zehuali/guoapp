@@ -74,6 +74,7 @@ type Chapter struct {
 	MediaSize      int64           `json:"mediaSize"`
 	PageURL        string          `json:"pageUrl,omitempty"`
 	Referer        string          `json:"referer,omitempty"`
+	DebugTrace     string          `json:"debugTrace,omitempty"`
 }
 
 func (c Chapter) EpisodeString(fallback int) string {

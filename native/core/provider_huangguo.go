@@ -60,11 +60,15 @@ var (
 )
 
 type providerEpisode struct {
-	Key   string
-	Title string
-	URL   string
-	Index int
-	HLS   string
+	Key         string
+	Title       string
+	URL         string
+	Index       int
+	HLS         string
+	SourceOrder int
+	TitleIndex  int
+	PathIndex   int
+	IndexSource string
 }
 
 func providerDramaID(source, sourceID string) string {
@@ -259,7 +263,9 @@ func (d *Downloader) fetchHuangguoAIDetail(ctx context.Context, sourceID string)
 		if key == "" {
 			key = strconv.Itoa(idx)
 		}
-		chapters = append(chapters, Chapter{ID: providerChapterID(sourceHuangguoAI, sourceID, key), Source: sourceHuangguoAI, Title: chapterTitle, VideoURL: mediaURL, PageURL: ep.URL, CurrentEpisode: rawEpisode(idx)})
+		chapterID := providerChapterID(sourceHuangguoAI, sourceID, key)
+		debugTrace := fmt.Sprintf("sourceOrder=%d episode=%d indexSource=%s titleIndex=%d pathIndex=%d chapter=%s page=%s title=%q", ep.SourceOrder, idx, ep.IndexSource, ep.TitleIndex, ep.PathIndex, providerMediaFingerprint(chapterID), providerMediaFingerprint(ep.URL), chapterTitle)
+		chapters = append(chapters, Chapter{ID: chapterID, Source: sourceHuangguoAI, Title: chapterTitle, VideoURL: mediaURL, PageURL: ep.URL, CurrentEpisode: rawEpisode(idx), DebugTrace: debugTrace})
 	}
 	sortProviderChapters(chapters)
 	return drama, uniqueChapters(chapters), nil
@@ -721,7 +727,7 @@ func parseHuangguoAIEpisodes(rawHTML, pageURL, sourceID string) []providerEpisod
 	seen := map[string]bool{}
 	var episodes []providerEpisode
 	usedIndex := map[int]bool{}
-	for _, m := range matches {
+	for matchIndex, m := range matches {
 		if len(m) < 4 || m[2] < 0 || m[3] < 0 {
 			continue
 		}
@@ -745,11 +751,14 @@ func parseHuangguoAIEpisodes(rawHTML, pageURL, sourceID string) []providerEpisod
 		seen[key] = true
 		seen[fullURL] = true
 		idx := titleIndex
+		indexSource := "title"
 		if idx <= 0 {
 			idx = pathIndex
+			indexSource = "path"
 		}
 		if idx <= 0 && belongsToDrama {
 			idx = nextUnusedEpisodeIndex(1, usedIndex)
+			indexSource = "page-order"
 		}
 		if idx <= 0 {
 			continue
@@ -758,7 +767,10 @@ func parseHuangguoAIEpisodes(rawHTML, pageURL, sourceID string) []providerEpisod
 			continue
 		}
 		usedIndex[idx] = true
-		episodes = append(episodes, providerEpisode{Key: key, Title: title, URL: fullURL, Index: idx})
+		episodes = append(episodes, providerEpisode{
+			Key: key, Title: title, URL: fullURL, Index: idx,
+			SourceOrder: matchIndex + 1, TitleIndex: titleIndex, PathIndex: pathIndex, IndexSource: indexSource,
+		})
 	}
 	sortProviderEpisodes(episodes)
 	return episodes
