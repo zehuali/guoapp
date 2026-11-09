@@ -5,9 +5,26 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'device_controls.dart';
 import 'player_keys.dart';
 import 'widgets.dart';
 import 'playback_player.dart';
+
+enum PlayerGestureKind { seek, volume, brightness }
+
+class PlayerGesture {
+  const PlayerGesture(
+    this.kind,
+    this.value, {
+    this.origin = 0,
+    this.duration = 0,
+  });
+
+  final PlayerGestureKind kind;
+  final double value;
+  final double origin;
+  final double duration;
+}
 
 class PlayerInteractions extends ChangeNotifier {
   PlayerInteractions({
@@ -42,10 +59,15 @@ class PlayerInteractions extends ChangeNotifier {
   final Set<int> _pointers = {};
   int? _pointer;
   Offset? _origin;
-  Offset? _lastPosition;
-  Duration _started = Duration.zero;
-  double _swipeThreshold = 70;
+  Size _surface = Size.zero;
   bool _swipeEnabled = false;
+  PlayerGestureKind? _panKind;
+  bool _panLocked = false;
+  double _panStart = 0;
+  PlayerGesture? _gesture;
+  double _brightness = .5;
+  double _mediaVolume = .5;
+  bool _brightnessChanged = false;
   bool _moved = false;
   bool _held = false;
   bool _boosting = false;
@@ -57,6 +79,7 @@ class PlayerInteractions extends ChangeNotifier {
   DateTime _ignoreTapUntil = DateTime(2000);
 
   String get feedback => _feedback;
+  PlayerGesture? get gesture => _gesture;
   bool get boosting => _boosting;
   bool get suppressTap => DateTime.now().isBefore(_ignoreTapUntil);
   Future<void> get pendingRates => _rates;
@@ -130,15 +153,109 @@ class PlayerInteractions extends ChangeNotifier {
     }
     _pointer = null;
     _origin = null;
-    _lastPosition = null;
+    _resetPan();
     _endHold(silent: true);
     hint('');
+  }
+
+  void _resetPan() {
+    _panKind = null;
+    _panLocked = false;
+    if (_gesture != null) {
+      _gesture = null;
+      notifyListeners();
+    }
+  }
+
+  void _refreshDevice() {
+    unawaited(
+      DeviceControls.brightness().then((value) {
+        if (value != null && _panKind != PlayerGestureKind.brightness) {
+          _brightness = value;
+        }
+      }),
+    );
+    unawaited(
+      DeviceControls.mediaVolume().then((value) {
+        if (value != null && _panKind != PlayerGestureKind.volume) {
+          _mediaVolume = value;
+        }
+      }),
+    );
+  }
+
+  void _beginPan(Offset delta) {
+    _panLocked = true;
+    if (!available()) return;
+    if (delta.dx.abs() > delta.dy.abs()) {
+      final duration = player.state.duration.inMilliseconds / 1000;
+      if (duration <= 0) return;
+      _panKind = PlayerGestureKind.seek;
+      _panStart = player.state.position.inMilliseconds / 1000;
+    } else if (_origin!.dx < _surface.width / 2) {
+      _panKind = PlayerGestureKind.brightness;
+      _panStart = _brightness;
+    } else {
+      _panKind = PlayerGestureKind.volume;
+      _panStart = _mediaVolume;
+    }
+    hint('');
+    _updatePan(delta);
+  }
+
+  void _updatePan(Offset delta) {
+    final kind = _panKind;
+    if (kind == null || _surface.isEmpty) return;
+    if (kind == PlayerGestureKind.seek) {
+      final duration = player.state.duration.inMilliseconds / 1000;
+      final span = math.min(duration, 120.0);
+      final target = (_panStart + delta.dx / _surface.width * span).clamp(
+        0.0,
+        duration,
+      );
+      _gesture = PlayerGesture(
+        kind,
+        target,
+        origin: _panStart,
+        duration: duration,
+      );
+    } else {
+      final value = (_panStart - delta.dy / (_surface.height * .8)).clamp(
+        0.0,
+        1.0,
+      );
+      if (kind == PlayerGestureKind.brightness) {
+        _brightness = value;
+        _brightnessChanged = true;
+        unawaited(DeviceControls.setBrightness(value));
+      } else {
+        _mediaVolume = value;
+        unawaited(DeviceControls.setMediaVolume(value));
+      }
+      _gesture = PlayerGesture(kind, value);
+    }
+    notifyListeners();
+  }
+
+  void _endPan() {
+    final gesture = _gesture;
+    if (gesture != null &&
+        gesture.kind == PlayerGestureKind.seek &&
+        available() &&
+        (gesture.value - gesture.origin).abs() >= .5) {
+      unawaited(
+        (onSeek ?? player.seek)(
+          Duration(milliseconds: (gesture.value * 1000).round()),
+        ),
+      );
+    }
+    _resetPan();
   }
 
   void pointerDown(
     PointerDownEvent event, {
     required bool swipeEnabled,
-    required double height,
+    required Size size,
   }) {
     _pointers.add(event.pointer);
     if (_pointers.length != 1 || _cancelUntilRelease) {
@@ -147,20 +264,26 @@ class PlayerInteractions extends ChangeNotifier {
     }
     if (!available() || event.buttons != kPrimaryButton) return;
     _pointer = event.pointer;
-    _origin = _lastPosition = event.localPosition;
-    _started = event.timeStamp;
+    _origin = event.localPosition;
+    _surface = size;
     _swipeEnabled = swipeEnabled && event.kind == PointerDeviceKind.touch;
-    _swipeThreshold = math.max(56, math.min(100, height * .1));
     _moved = _held = false;
+    _resetPan();
+    if (_swipeEnabled) _refreshDevice();
     _beginHold();
   }
 
   void pointerMove(PointerMoveEvent event) {
-    if (_pointer != event.pointer || _origin == null) return;
-    _lastPosition = event.localPosition;
-    if ((event.localPosition - _origin!).distance > 12) {
+    if (_pointer != event.pointer || _origin == null || _held) return;
+    final delta = event.localPosition - _origin!;
+    if (_panKind != null) {
+      _updatePan(delta);
+      return;
+    }
+    if (delta.distance > 12 && !_moved) {
       _moved = true;
       _endHold();
+      if (_swipeEnabled && !_panLocked) _beginPan(delta);
     }
   }
 
@@ -172,21 +295,13 @@ class PlayerInteractions extends ChangeNotifier {
       return;
     }
     if (_pointer != event.pointer || _origin == null) return;
-    final delta = (_lastPosition ?? event.localPosition) - _origin!;
-    final swipe =
-        _swipeEnabled &&
-        !_held &&
-        _moved &&
-        delta.dy.abs() >= _swipeThreshold &&
-        delta.dy.abs() > delta.dx.abs() * 1.5 &&
-        event.timeStamp - _started < const Duration(milliseconds: 1500);
     if (_moved || _held) {
       _ignoreTapUntil = DateTime.now().add(const Duration(milliseconds: 600));
     }
     _pointer = null;
     _origin = null;
+    _endPan();
     _endHold();
-    if (swipe && available()) hint(onEpisode(delta.dy < 0 ? 1 : -1));
   }
 
   void pointerCancel(PointerCancelEvent event) {
@@ -301,6 +416,7 @@ class PlayerInteractions extends ChangeNotifier {
     _holdTimer?.cancel();
     _hintTimer?.cancel();
     if (_boosting) unawaited(_setRate(baseSpeed()));
+    if (_brightnessChanged) unawaited(DeviceControls.resetBrightness());
     _boosting = false;
     _playing.cancel();
     _pointers.clear();

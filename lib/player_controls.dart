@@ -67,6 +67,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   Timer? _hideTimer;
   bool _visible = true;
   double? _seekValue;
+  PlayerGestureKind? _lastGesture;
 
   @override
   void initState() {
@@ -109,7 +110,16 @@ class _PlayerControlsState extends State<PlayerControls> {
   }
 
   void _interactionChanged() {
-    if (mounted && widget.interactions.feedback.isNotEmpty) _show(user: true);
+    if (!mounted) return;
+    final gesture = widget.interactions.gesture;
+    if (gesture != null) {
+      _hideTimer?.cancel();
+      setState(() => _visible = gesture.kind == PlayerGestureKind.seek);
+    } else if (_lastGesture == PlayerGestureKind.seek ||
+        (_lastGesture == null && widget.interactions.feedback.isNotEmpty)) {
+      _show(user: true);
+    }
+    _lastGesture = gesture?.kind;
   }
 
   void _scheduleHide() {
@@ -143,15 +153,8 @@ class _PlayerControlsState extends State<PlayerControls> {
   void _tap() {
     if (widget.interactions.suppressTap) return;
     widget.onFocusSurface();
-    if (widget.swipeEnabled &&
-        MediaQuery.orientationOf(context) == Orientation.portrait &&
-        widget.enabled) {
-      widget.onTogglePlayback();
-      _show(user: true);
-    } else {
-      setState(() => _visible = !_visible);
-      _scheduleHide();
-    }
+    setState(() => _visible = !_visible);
+    _scheduleHide();
   }
 
   Future<void> _panel(Future<void> Function() open) async {
@@ -177,6 +180,11 @@ class _PlayerControlsState extends State<PlayerControls> {
     final duration = state.duration.inMilliseconds / 1000;
     final position = state.position.inMilliseconds / 1000;
     final buffered = state.buffer.inMilliseconds / 1000;
+    final gesture = widget.interactions.gesture;
+    final preview = gesture?.kind == PlayerGestureKind.seek
+        ? gesture!.value
+        : null;
+    final shown = _seekValue ?? preview ?? position;
     final visible =
         _visible ||
         (!widget.seamless && (!state.playing || state.buffering)) ||
@@ -196,7 +204,7 @@ class _PlayerControlsState extends State<PlayerControls> {
                 widget.interactions.pointerDown(
                   event,
                   swipeEnabled: widget.swipeEnabled,
-                  height: constraints.maxHeight,
+                  size: constraints.biggest,
                 );
               },
               onPointerMove: widget.interactions.pointerMove,
@@ -411,7 +419,7 @@ class _PlayerControlsState extends State<PlayerControls> {
                                         ),
                                         const SizedBox(width: 10),
                                         Text(
-                                          '${formatPosition(_seekValue ?? position)} / ${formatPosition(duration)}',
+                                          '${formatPosition(shown)} / ${formatPosition(duration)}',
                                           maxLines: 1,
                                           style: const TextStyle(
                                             fontSize: 12,
@@ -469,7 +477,7 @@ class _PlayerControlsState extends State<PlayerControls> {
                                           ),
                                         Expanded(
                                           child: Text(
-                                            '${formatPosition(_seekValue ?? position)} / ${formatPosition(duration)}',
+                                            '${formatPosition(shown)} / ${formatPosition(duration)}',
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: const TextStyle(
@@ -507,7 +515,7 @@ class _PlayerControlsState extends State<PlayerControls> {
                                   if (widget.showProgress)
                                     _ProgressTrack(
                                       key: const ValueKey('player-progress'),
-                                      position: _seekValue ?? position,
+                                      position: shown,
                                       buffered: buffered,
                                       duration: duration,
                                       enabled: widget.enabled,
@@ -543,6 +551,8 @@ class _PlayerControlsState extends State<PlayerControls> {
             AnimatedBuilder(
               animation: widget.interactions,
               builder: (context, _) {
+                final gesture = widget.interactions.gesture;
+                if (gesture != null) return _GestureIndicator(gesture);
                 final feedback = widget.interactions.feedback;
                 if (feedback.isEmpty) return const SizedBox.shrink();
                 return IgnorePointer(
@@ -565,6 +575,92 @@ class _PlayerControlsState extends State<PlayerControls> {
               },
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GestureIndicator extends StatelessWidget {
+  const _GestureIndicator(this.gesture);
+
+  final PlayerGesture gesture;
+
+  @override
+  Widget build(BuildContext context) {
+    final seek = gesture.kind == PlayerGestureKind.seek;
+    final value = gesture.value;
+    final delta = (value - gesture.origin).round();
+    final icon = switch (gesture.kind) {
+      PlayerGestureKind.seek =>
+        delta >= 0 ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
+      PlayerGestureKind.brightness =>
+        value < .35
+            ? Icons.brightness_low_rounded
+            : value < .7
+            ? Icons.brightness_medium_rounded
+            : Icons.brightness_high_rounded,
+      PlayerGestureKind.volume =>
+        value == 0
+            ? Icons.volume_off_rounded
+            : value < .5
+            ? Icons.volume_down_rounded
+            : Icons.volume_up_rounded,
+    };
+    final progress = seek
+        ? (gesture.duration > 0 ? value / gesture.duration : 0.0)
+        : value;
+    return IgnorePointer(
+      child: Center(
+        child: Container(
+          width: seek ? 196 : 164,
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: .72),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 22, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      seek
+                          ? '${formatPosition(value)} / ${formatPosition(gesture.duration)}'
+                          : '${(value * 100).round()}%',
+                      maxLines: 1,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (seek) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '${delta >= 0 ? '+' : '-'}${delta.abs()} 秒',
+                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                ),
+              ],
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: progress.clamp(0.0, 1.0),
+                  minHeight: 3,
+                  backgroundColor: Colors.white24,
+                  color: const Color(0xFFFB7299),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

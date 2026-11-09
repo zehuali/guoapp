@@ -9,6 +9,8 @@ import android.os.Bundle
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.media.AudioManager
+import android.view.WindowManager
 import android.net.ConnectivityManager
 import android.net.Uri
 import io.flutter.embedding.engine.FlutterEngine
@@ -46,6 +48,40 @@ class MainActivity : FlutterActivity() {
             true
         } catch (_: Throwable) {
             false
+        }
+    }
+
+    private fun brightness(): Double {
+        val current = window.attributes.screenBrightness
+        if (current >= 0f) return current.toDouble()
+        val system = try {
+            Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+        } catch (_: Throwable) {
+            128
+        }
+        return (system / 255.0).coerceIn(0.0, 1.0)
+    }
+
+    private fun setBrightness(value: Float) {
+        window.attributes = window.attributes.apply { screenBrightness = value }
+    }
+
+    private fun mediaVolume(): Double {
+        val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        if (max <= 0) return 0.0
+        return audio.getStreamVolume(AudioManager.STREAM_MUSIC).toDouble() / max
+    }
+
+    private fun setMediaVolume(value: Double) {
+        val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val target = Math.round(value.coerceIn(0.0, 1.0) * max).toInt()
+        if (target != audio.getStreamVolume(AudioManager.STREAM_MUSIC)) {
+            try {
+                audio.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
+            } catch (_: Throwable) {
+            }
         }
     }
 
@@ -90,6 +126,20 @@ class MainActivity : FlutterActivity() {
                             "abi" to Build.SUPPORTED_ABIS.firstOrNull().orEmpty(),
                         ),
                     )
+                } else if (call.method == "brightness") {
+                    result.success(brightness())
+                } else if (call.method == "setBrightness") {
+                    val value = call.argument<Double>("value") ?: brightness()
+                    setBrightness(value.toFloat().coerceIn(0.01f, 1f))
+                    result.success(null)
+                } else if (call.method == "resetBrightness") {
+                    setBrightness(WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)
+                    result.success(null)
+                } else if (call.method == "mediaVolume") {
+                    result.success(mediaVolume())
+                } else if (call.method == "setMediaVolume") {
+                    setMediaVolume(call.argument<Double>("value") ?: mediaVolume())
+                    result.success(null)
                 } else if (call.method == "systemProxy") {
                     val connection = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
                     val proxy = connection.defaultProxy
