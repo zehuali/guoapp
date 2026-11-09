@@ -735,7 +735,10 @@ func parseHuangguoAIEpisodes(rawHTML, pageURL, sourceID string) []providerEpisod
 		fullURL := resolveProviderURL(pageURL, href)
 		linkHTML := rawHTML[m[0]:m[1]]
 		title := firstNonEmpty(extractAttr(linkHTML, "title", "aria-label"), cleanText(linkHTML))
-		titleIndex := episodeIndex(title, 0)
+		if isAIEpisodeNavigationTitle(title) {
+			continue
+		}
+		titleIndex := aiEpisodeTitleIndex(title)
 		pathIndex := episodeIndex(href, 0)
 		belongsToDrama := aiVideoID(href) == sourceID
 		if titleIndex <= 0 && !belongsToDrama {
@@ -774,6 +777,22 @@ func parseHuangguoAIEpisodes(rawHTML, pageURL, sourceID string) []providerEpisod
 	}
 	sortProviderEpisodes(episodes)
 	return episodes
+}
+
+func aiEpisodeTitleIndex(title string) int {
+	if index := episodeIndex(title, 0); index > 0 {
+		return index
+	}
+	index, err := strconv.Atoi(strings.TrimSpace(title))
+	if err != nil || index <= 0 {
+		return 0
+	}
+	return index
+}
+
+func isAIEpisodeNavigationTitle(title string) bool {
+	title = strings.ToLower(strings.TrimSpace(title))
+	return title == "上一集" || title == "下一集" || title == "previous episode" || title == "next episode"
 }
 
 func aiVideoID(href string) string {
