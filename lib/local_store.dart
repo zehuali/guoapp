@@ -181,11 +181,6 @@ class LocalStore extends ChangeNotifier {
       isFavorite(id) ? _followStates[id] : null;
   bool get hideVip =>
       _configurationError == null ? _bool(_key('hideVip')) ?? true : true;
-  String get displayMode {
-    final value = _configurationError == null ? _string('displayMode') : null;
-    return {'auto', 'television', 'standard'}.contains(value) ? value! : 'auto';
-  }
-
   String get themeMode {
     final value = _configurationError == null ? _string('themeMode') : null;
     return {'light', 'dark', 'system'}.contains(value) ? value! : 'system';
@@ -239,20 +234,6 @@ class LocalStore extends ChangeNotifier {
 
   Future<void> setWebdavConfig(WebdavConfig value) =>
       _setting(_key('webdav'), jsonEncode(value.toJson()));
-
-  bool get tvSystemPlayer => _configurationError == null
-      ? _bool(_key('tvSystemPlayer')) ?? true
-      : true;
-
-  Future<void> setTvSystemPlayer(bool value) =>
-      _setting(_key('tvSystemPlayer'), value);
-
-  bool get tvPlatformView => _configurationError == null
-      ? _bool(_key('tvPlatformView')) ?? true
-      : true;
-
-  Future<void> setTvPlatformView(bool value) =>
-      _setting(_key('tvPlatformView'), value);
 
   CatalogView get catalogView {
     if (locked) return const CatalogView();
@@ -384,10 +365,6 @@ class LocalStore extends ChangeNotifier {
     return _setting(_key('source'), value);
   }
 
-  Future<void> setDisplayMode(String value) =>
-      {'auto', 'television', 'standard'}.contains(value)
-      ? _setting('displayMode', value)
-      : Future.value();
   Future<void> setThemeMode(String value) =>
       {'light', 'dark', 'system'}.contains(value)
       ? _setting('themeMode', value)
@@ -760,7 +737,6 @@ class LocalStore extends ChangeNotifier {
       'schema': 1,
       'app': 'zhenguojian',
       'profiles': _profiles.map((profile) => profile.toJson()).toList(),
-      'displayMode': displayMode,
       'themeMode': themeMode,
       'autoExport': autoExport,
       'exportPosters': exportPosters,
@@ -870,10 +846,6 @@ class LocalStore extends ChangeNotifier {
         profiles.map((profile) => profile.toJson()).toList(),
       ),
       'activeProfile': profiles.firstWhere((profile) => profile.admin).id,
-      'displayMode':
-          {'auto', 'television', 'standard'}.contains(data['displayMode'])
-          ? data['displayMode'] as String
-          : 'auto',
       'themeMode': data['themeMode'] as String? ?? themeMode,
       'autoExport': data['autoExport'] == true,
       'exportPosters': data['exportPosters'] == true,

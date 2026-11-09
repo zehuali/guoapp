@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
-import 'app_layout.dart';
 import 'core_bridge.dart';
 import 'download_picker.dart';
 import 'downloads_screen.dart';
@@ -48,7 +47,6 @@ class _DetailScreenState extends State<DetailScreen> {
   final _detailScroll = ScrollController();
   final _playFocus = FocusNode(debugLabel: 'detail-start-play');
   bool _initialActionHandled = false;
-  bool _playFocusRequested = false;
   late final int _profileEpoch;
   Widget? get _sourceDiagnostics => widget.repository.supportsSourceManagement
       ? SourceDiagnosticsButton(
@@ -84,17 +82,6 @@ class _DetailScreenState extends State<DetailScreen> {
     widget.store.removeListener(_onStoreChanged);
     _generation++;
     super.dispose();
-  }
-
-  void _focusPlayButton() {
-    if (_playFocusRequested || !mounted || !AppLayout.isTelevision(context)) {
-      return;
-    }
-    if (_detail == null || _detail!.episodes.isEmpty) return;
-    _playFocusRequested = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _playFocus.canRequestFocus) _playFocus.requestFocus();
-    });
   }
 
   void _onPlayFocusChanged() {
@@ -142,7 +129,6 @@ class _DetailScreenState extends State<DetailScreen> {
         }
       }
       widget.repository.catalogUpdates.publish(merged, retryCover: true);
-      _focusPlayButton();
       unawaited(_supplement(merged, generation));
       await saveUserChange(context, () => widget.store.refreshDrama(merged));
       if (mounted &&
@@ -274,7 +260,6 @@ class _DetailScreenState extends State<DetailScreen> {
           content: const Text('站源可能只提供试看或限制播放。'),
           actions: [
             TextButton(
-              autofocus: AppLayout.isTelevision(context),
               onPressed: () => Navigator.pop(context, false),
               child: const Text('取消'),
             ),
@@ -321,7 +306,6 @@ class _DetailScreenState extends State<DetailScreen> {
     final watched = widget.store.watched(drama.id);
     final episodes = _detail?.episodes ?? <Episode>[];
     final resumeIndex = resumeEpisodeIndex(episodes, watched);
-    final television = AppLayout.isTelevision(context);
     final allowed =
         widget.store.profileEpoch == _profileEpoch &&
         widget.store.allowsSource(drama.source);
@@ -334,7 +318,6 @@ class _DetailScreenState extends State<DetailScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          toolbarHeight: television ? 64 : null,
           title: Text(drama.title, overflow: TextOverflow.ellipsis),
           actions: [
             RefreshAction(
@@ -358,7 +341,7 @@ class _DetailScreenState extends State<DetailScreen> {
                       message: '请返回剧库后重新选择。',
                     );
                   }
-                  if (television || constraints.maxWidth >= 960) {
+                  if (constraints.maxWidth >= 960) {
                     return Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -486,7 +469,6 @@ class _DetailScreenState extends State<DetailScreen> {
                         child: FilledButton.icon(
                           key: const ValueKey('start-play'),
                           focusNode: _playFocus,
-                          autofocus: television,
                           style: FilledButton.styleFrom(
                             minimumSize: const Size(0, 52),
                             padding: const EdgeInsets.symmetric(

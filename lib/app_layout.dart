@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 
 export 'app_build.dart';
@@ -8,49 +8,8 @@ const _appVersionDefine = String.fromEnvironment('APP_VERSION');
 
 const appVersion = _appVersionDefine == '' ? '0.2.16' : _appVersionDefine;
 
-ThemeData televisionTheme(ThemeData theme) {
-  final colors = theme.colorScheme;
-  final focusSide = WidgetStateProperty.resolveWith<BorderSide?>(
-    (states) => states.contains(WidgetState.focused)
-        ? BorderSide(color: colors.primary, width: 3)
-        : null,
-  );
-  final focusBackground = WidgetStateProperty.resolveWith<Color?>(
-    (states) =>
-        states.contains(WidgetState.focused) ? colors.primaryContainer : null,
-  );
-  final button = ButtonStyle(
-    side: focusSide,
-    minimumSize: const WidgetStatePropertyAll(Size(52, 48)),
-    textStyle: const WidgetStatePropertyAll(TextStyle(fontSize: 17)),
-  );
-  return theme.copyWith(
-    focusColor: colors.primaryContainer,
-    iconButtonTheme: IconButtonThemeData(
-      style: button.copyWith(backgroundColor: focusBackground),
-    ),
-    filledButtonTheme: FilledButtonThemeData(style: button),
-    outlinedButtonTheme: OutlinedButtonThemeData(style: button),
-    textButtonTheme: TextButtonThemeData(
-      style: button.copyWith(backgroundColor: focusBackground),
-    ),
-    inputDecorationTheme: theme.inputDecorationTheme.copyWith(
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: colors.primary, width: 3),
-      ),
-    ),
-  );
-}
-
 class AppDevice {
-  const AppDevice({
-    this.television = false,
-    this.version = appVersion,
-    this.build = 0,
-    this.abi = '',
-  });
-  final bool television;
+  const AppDevice({this.version = appVersion, this.build = 0, this.abi = ''});
   final String version;
   final int build;
   final String abi;
@@ -63,7 +22,6 @@ class AppDevice {
     try {
       final data = await channel.invokeMapMethod<String, dynamic>('deviceInfo');
       return AppDevice(
-        television: data?['television'] == true,
         version: data?['version'] as String? ?? appVersion,
         build: (data?['build'] as num?)?.toInt() ?? 0,
         abi: data?['abi'] as String? ?? '',
@@ -77,27 +35,13 @@ class AppDevice {
 }
 
 class AppLayout extends InheritedWidget {
-  const AppLayout({
-    super.key,
-    required this.television,
-    this.version = appVersion,
-    required super.child,
-  });
-  final bool television;
+  const AppLayout({super.key, this.version = appVersion, required super.child});
   final String version;
 
-  static bool isTelevision(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<AppLayout>()?.television ??
-      false;
-
-  /// 不建立依赖，可在 initState 中判断播放器类型。
-  static bool isTelevisionNow(BuildContext context) =>
-      context.getInheritedWidgetOfExactType<AppLayout>()?.television ?? false;
   static String versionOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<AppLayout>()?.version ??
       appVersion;
 
   @override
-  bool updateShouldNotify(AppLayout oldWidget) =>
-      television != oldWidget.television || version != oldWidget.version;
+  bool updateShouldNotify(AppLayout oldWidget) => version != oldWidget.version;
 }

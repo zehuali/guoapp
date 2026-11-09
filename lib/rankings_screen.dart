@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'app_layout.dart';
 import 'catalog_filters.dart';
 import 'core_bridge.dart';
 import 'detail_screen.dart';
 import 'local_store.dart';
 import 'models.dart';
 import 'ranking_models.dart';
-import 'remote_widgets.dart';
 import 'widgets.dart';
 
 class RankingsScreen extends StatefulWidget {
@@ -36,7 +34,6 @@ class _RankingsScreenState extends State<RankingsScreen> {
   bool _failedMore = false;
   int _page = 1;
   int _generation = 0;
-  int _autoLoadCount = 0;
   String? _error;
   String _updated = '';
 
@@ -94,7 +91,6 @@ class _RankingsScreenState extends State<RankingsScreen> {
     final board = _board;
     if (board == null || more && (_loading || _more || !_hasMore)) return;
     final generation = ++_generation;
-    if (!more) _autoLoadCount = 0;
     setState(() {
       _loading = !more;
       _more = more;
@@ -142,7 +138,6 @@ class _RankingsScreenState extends State<RankingsScreen> {
       _updated = '';
       _page = 1;
       _hasMore = false;
-      _autoLoadCount = 0;
     });
     if (_scroll.hasClients) _scroll.jumpTo(0);
     _load();
@@ -150,7 +145,6 @@ class _RankingsScreenState extends State<RankingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final television = AppLayout.isTelevision(context);
     final groups = SourceGroup.fromSources(
       _boards.map((board) => SourceSite.byId(board.source)).toSet(),
     );
@@ -269,8 +263,6 @@ class _RankingsScreenState extends State<RankingsScreen> {
                           ? _initialize
                           : () => _load(force: true),
                     )
-                  : television
-                  ? _televisionRankings(items)
                   : RefreshIndicator(
                       onRefresh: () => _load(force: true),
                       child: ListView.builder(
@@ -336,52 +328,6 @@ class _RankingsScreenState extends State<RankingsScreen> {
       ),
     ),
   );
-
-  Widget _rankingTelevisionCard(
-    RankingItem item,
-    FocusNode node,
-    VoidCallback onFocus,
-  ) => RemoteTarget(
-    key: ValueKey('rank-${item.rank}-${item.drama.id}'),
-    focusNode: node,
-    onFocus: onFocus,
-    label: '第 ${item.rank} 名，${item.drama.title}',
-    onPressed: () => _open(item),
-    child: Card(margin: EdgeInsets.zero, child: _rankingCardBody(item)),
-  );
-
-  Widget _televisionRankings(List<RankingItem> items) => RemoteGrid(
-    key: ValueKey('ranking-grid-${_board!.id}'),
-    controller: _scroll,
-    itemKeys: [for (final item in items) 'rank-${item.rank}-${item.drama.id}'],
-    columns: 1,
-    itemExtent: 144,
-    spacing: 8,
-    padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-    footer: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Center(
-        child: _more
-            ? const CircularProgressIndicator()
-            : Text(_hasMore ? '继续下移可加载更多' : '已显示全部榜单'),
-      ),
-    ),
-    itemBuilder: (context, index, node, onFocus) {
-      _autoLoadMore(index, items.length);
-      return _rankingTelevisionCard(items[index], node, onFocus);
-    },
-  );
-
-  void _autoLoadMore(int index, int count) {
-    if (!_hasMore || _more || _failedMore || index < count - 2) return;
-    if (_autoLoadCount == count) return;
-    _autoLoadCount = count;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _hasMore && !_more && !_failedMore) {
-        _load(more: true);
-      }
-    });
-  }
 
   Widget _rankingCardBody(RankingItem item) => Padding(
     padding: const EdgeInsets.all(12),

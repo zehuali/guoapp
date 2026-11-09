@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'app_layout.dart';
 import 'models.dart';
 import 'remote_widgets.dart';
 
@@ -206,7 +205,6 @@ class _EpisodeBrowserState extends State<EpisodeBrowser> {
   Widget build(BuildContext context) {
     final start = _page * episodePageSize;
     final visible = widget.episodes.skip(start).take(episodePageSize).toList();
-    final television = AppLayout.isTelevision(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -231,10 +229,7 @@ class _EpisodeBrowserState extends State<EpisodeBrowser> {
               final scale = MediaQuery.textScalerOf(context);
               final columns =
                   ((constraints.maxWidth - 36) /
-                          max(
-                            television ? 100 : 82,
-                            scale.scale(20) * digits * .65 + 40,
-                          ))
+                          max(82, scale.scale(20) * digits * .65 + 40))
                       .floor()
                       .clamp(1, 12);
               final extent = max(56.0, scale.scale(20) + 30);
@@ -265,7 +260,6 @@ class _EpisodeBrowserState extends State<EpisodeBrowser> {
               return RemoteGrid(
                 key: ValueKey('episode-page-$_page-$_located'),
                 controller: _scroll,
-                autofocus: television && _located != null,
                 initialIndex: target,
                 itemKeys: visible
                     .map((episode) => '${episode.number}')

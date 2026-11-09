@@ -84,11 +84,7 @@ class _AppBootstrapState extends State<AppBootstrap>
           repository.access = store;
           MediaLibrary.attach(repository, store!);
           LanController.current?.dispose();
-          final link = LanController(
-            repository,
-            store!,
-            kind: device.television ? 'tv' : 'phone',
-          );
+          final link = LanController(repository, store!, kind: 'phone');
           LanController.current = link;
           link.openPlayback = (request) async {
             final epoch = request.profileEpoch;
@@ -143,7 +139,6 @@ class _AppBootstrapState extends State<AppBootstrap>
     store: store,
     bootstrapError: error?.toString(),
     onRetry: _initialize,
-    television: device.television,
     version: device.version,
     navigatorKey: navigator,
   );
@@ -156,7 +151,6 @@ class DuanjuApp extends StatelessWidget {
     this.store,
     this.bootstrapError,
     this.onRetry,
-    this.television = false,
     this.version = appVersion,
     this.navigatorKey,
   });
@@ -164,7 +158,6 @@ class DuanjuApp extends StatelessWidget {
   final LocalStore? store;
   final String? bootstrapError;
   final VoidCallback? onRetry;
-  final bool television;
   final String version;
   final GlobalKey<NavigatorState>? navigatorKey;
 
@@ -185,32 +178,26 @@ class DuanjuApp extends StatelessWidget {
     darkTheme: AppTheme.dark,
     themeMode: AppTheme.mode(store?.themeMode ?? 'system'),
     builder: (context, child) {
-      final mode = store?.displayMode ?? 'auto';
-      final tv = mode == 'television' || mode == 'auto' && television;
       final theme = Theme.of(context);
       return AnnotatedRegion<SystemUiOverlayStyle>(
         value: AppTheme.systemBars(theme.brightness),
         child: ColoredBox(
           color: theme.scaffoldBackgroundColor,
           child: AppLayout(
-            television: tv,
             version: version,
-            child: Theme(
-              data: tv ? televisionTheme(theme) : theme,
-              child: Shortcuts(
-                shortcuts: const {
-                  SingleActivator(
-                    LogicalKeyboardKey.select,
-                    includeRepeats: false,
-                  ): ActivateIntent(),
-                  SingleActivator(
-                    LogicalKeyboardKey.gameButtonA,
-                    includeRepeats: false,
-                  ): ActivateIntent(),
-                  SingleActivator(LogicalKeyboardKey.goBack): DismissIntent(),
-                },
-                child: FocusTraversalGroup(child: child!),
-              ),
+            child: Shortcuts(
+              shortcuts: const {
+                SingleActivator(
+                  LogicalKeyboardKey.select,
+                  includeRepeats: false,
+                ): ActivateIntent(),
+                SingleActivator(
+                  LogicalKeyboardKey.gameButtonA,
+                  includeRepeats: false,
+                ): ActivateIntent(),
+                SingleActivator(LogicalKeyboardKey.goBack): DismissIntent(),
+              },
+              child: FocusTraversalGroup(child: child!),
             ),
           ),
         ),

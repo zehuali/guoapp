@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'app_layout.dart';
 import 'catalog_sort.dart';
 import 'core_bridge.dart';
 import 'drama_actions.dart';
 import 'follow_state.dart';
 import 'local_store.dart';
 import 'models.dart';
-import 'remote_widgets.dart';
 import 'widgets.dart';
 
 class SavedLibrary extends StatefulWidget {
@@ -229,42 +227,6 @@ class _SavedLibraryState extends State<SavedLibrary> {
       );
       return LayoutBuilder(
         builder: (context, constraints) {
-          if (AppLayout.isTelevision(context)) {
-            final columns = ((constraints.maxWidth - 36) / 150).floor().clamp(
-              1,
-              8,
-            );
-            final tileWidth =
-                (constraints.maxWidth - 36 - (columns - 1) * 14) / columns;
-            return Column(
-              children: [
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: constraints.maxHeight * .5,
-                  ),
-                  child: SingleChildScrollView(child: Column(children: header)),
-                ),
-                Expanded(
-                  child: items.isEmpty
-                      ? empty
-                      : RemoteGrid(
-                          key: ValueKey(
-                            'saved-tv-${widget.history}-$_filter-${_search.text}',
-                          ),
-                          itemKeys: items.map((item) => item.id).toList(),
-                          columns: columns,
-                          itemExtent:
-                              DramaTile.extentFor(context, tileWidth - 14) + 14,
-                          itemBuilder: (_, index, node, onFocus) => _tile(
-                            items[index],
-                            focusNode: node,
-                            onFocus: onFocus,
-                          ),
-                        ),
-                ),
-              ],
-            );
-          }
           final padding = constraints.maxWidth < 600 ? 16.0 : 24.0;
           return CustomScrollView(
             key: PageStorageKey(

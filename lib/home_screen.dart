@@ -18,7 +18,6 @@ import 'downloads_screen.dart';
 import 'local_store.dart';
 import 'lan_screen.dart';
 import 'models.dart';
-import 'remote_widgets.dart';
 import 'widgets.dart';
 import 'vip_icon.dart';
 import 'settings_screen.dart';
@@ -281,10 +280,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _toggleSearch() {
-    if (AppLayout.isTelevision(context)) {
-      _televisionSearch();
-      return;
-    }
     if (_showRecommendations) _changeCategory('');
     final hadQuery = _search.text.isNotEmpty;
     setState(() {
@@ -324,73 +319,6 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadCategories();
     if (mounted && (!_onlineSearch || _submittedQuery.isEmpty)) {
       await _load(useCache: true);
-    }
-  }
-
-  Future<void> _chooseDisplayMode() async {
-    final selection = await showDialog<String>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('界面模式'),
-        children: [
-          RadioGroup<String>(
-            groupValue: widget.store.displayMode,
-            onChanged: (value) => Navigator.pop(context, value),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final mode in const {
-                  'auto': '自动识别设备',
-                  'television': '电视 / 遥控器',
-                  'standard': '手机 / 电脑',
-                }.entries)
-                  RadioListTile<String>(
-                    value: mode.key,
-                    autofocus: mode.key == widget.store.displayMode,
-                    title: Text(mode.value),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-    if (selection != null && mounted) {
-      await saveUserChange(
-        context,
-        () => widget.store.setDisplayMode(selection),
-      );
-    }
-  }
-
-  Future<void> _televisionSearch() async {
-    final query = await showDialog<String>(
-      context: context,
-      builder: (_) => TelevisionSearchDialog(
-        initialValue: _search.text,
-        title: _group.id == 'all'
-            ? '搜索已开放站源'
-            : _onlineSearch
-            ? '搜索${_group.name}短剧'
-            : '筛选当前已加载短剧',
-        recentSearches: widget.store.recentSearches,
-        onCancel: () => unawaited(widget.repository.cancelSuggestions()),
-        suggestions: _searchSuggestions ? widget.repository.suggestions : null,
-      ),
-    );
-    if (query != null && mounted) {
-      _submitSearch(query);
-    }
-  }
-
-  void _televisionBack() {
-    if (_selectionMode) {
-      _cancelSelection();
-    } else if (_tab != 0) {
-      setState(() => _tab = 0);
-    } else if (_search.text.isNotEmpty) {
-      _search.clear();
-      _searchChanged('');
     }
   }
 
@@ -732,11 +660,9 @@ class _HomeScreenState extends State<HomeScreen> {
     animation: widget.store,
     builder: (context, _) => LayoutBuilder(
       builder: (context, constraints) {
-        final television = AppLayout.isTelevision(context);
         final desktop = constraints.maxWidth >= 840;
         final scaffold = Scaffold(
           appBar: AppBar(
-            toolbarHeight: television ? 64 : null,
             titleSpacing: 12,
             title: _selectionMode
                 ? const Text(
@@ -887,8 +813,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           builder: (_) => ProfilesScreen(store: widget.store),
                         ),
                       );
-                    } else if (value == 'display') {
-                      _chooseDisplayMode();
                     } else if (value == 'about') {
                       showAboutDialog(
                         context: context,
@@ -928,7 +852,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       value: 'settings',
                       child: Text('设置与备份'),
                     ),
-                    const PopupMenuItem(value: 'display', child: Text('界面模式')),
                     const PopupMenuItem(
                       value: 'about',
                       child: Text('关于$appName'),
@@ -943,38 +866,7 @@ class _HomeScreenState extends State<HomeScreen> {
             top: false,
             child: Row(
               children: [
-                if (television) ...[
-                  SizedBox(
-                    width: 164,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 24, 8, 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (final entry in [
-                            (Icons.explore_rounded, '发现'),
-                            (Icons.bookmark_rounded, '追剧'),
-                            (Icons.history_rounded, '最近观看'),
-                            if (widget.store.canDownload)
-                              (Icons.download_rounded, '下载'),
-                          ].indexed)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 14),
-                              child: RemoteButton(
-                                key: ValueKey('tv-nav-${entry.$1}'),
-                                label: entry.$2.$2,
-                                icon: entry.$2.$1,
-                                selected: _tab == entry.$1,
-                                autofocus: entry.$1 == 0,
-                                onPressed: () => _changeTab(entry.$1),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const VerticalDivider(width: 1),
-                ] else if (desktop) ...[
+                if (desktop) ...[
                   NavigationRail(
                     selectedIndex: _tab,
                     onDestinationSelected: _changeTab,
@@ -1012,7 +904,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 title: '暂无可用站源',
                                 message: '请联系管理员为当前用户开放站源。',
                               )
-                            : _catalog(selectionInBody: desktop || television)
+                            : _catalog(selectionInBody: desktop)
                       : _tab == 3
                       ? DownloadsScreen(
                           repository: widget.repository,
@@ -1037,7 +929,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          bottomNavigationBar: desktop || television
+          bottomNavigationBar: desktop
               ? null
               : _selectionMode
               ? _selectionBar()
@@ -1068,23 +960,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
         );
-        if (!television && !_selectionMode) return scaffold;
+        if (!_selectionMode) return scaffold;
         return PopScope(
-          canPop:
-              !_selectionMode &&
-              (!television || _tab == 0 && _search.text.isEmpty),
+          canPop: false,
           onPopInvokedWithResult: (didPop, result) {
-            if (!didPop) _televisionBack();
+            if (!didPop) _cancelSelection();
           },
-          child: CallbackShortcuts(
-            bindings: {
-              const SingleActivator(LogicalKeyboardKey.escape): () =>
-                  Navigator.of(context).maybePop(),
-              const SingleActivator(LogicalKeyboardKey.goBack): () =>
-                  Navigator.of(context).maybePop(),
-            },
-            child: scaffold,
-          ),
+          child: scaffold,
         );
       },
     ),
@@ -1092,10 +974,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _catalog({required bool selectionInBody}) {
     final items = _visible;
-    final television = AppLayout.isTelevision(context);
     return Column(
       children: [
-        if (_searchVisible && !television)
+        if (_searchVisible)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
             child: SearchInput(
@@ -1173,7 +1054,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (_showRecommendations)
           Expanded(
             child: GestureDetector(
-              onHorizontalDragEnd: television ? null : _swipeCategory,
+              onHorizontalDragEnd: _swipeCategory,
               child: RecommendationsScreen(
                 repository: widget.repository,
                 store: widget.store,
@@ -1226,7 +1107,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           Expanded(
             child: GestureDetector(
-              onHorizontalDragEnd: television ? null : _swipeCategory,
+              onHorizontalDragEnd: _swipeCategory,
               child: _loading && _items.isEmpty
                   ? const Center(
                       child: Column(
@@ -1274,29 +1155,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     )
                   : LayoutBuilder(
                       builder: (context, constraints) {
-                        if (television) {
-                          return _televisionGrid(
-                            items,
-                            constraints.maxWidth,
-                            key:
-                                'catalog-${_group.id}-$_category-$_submittedQuery',
-                            controller: _scroll,
-                            footer: Padding(
-                              padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
-                              child: Center(
-                                child: _loadingMore
-                                    ? const CircularProgressIndicator()
-                                    : _hasMore
-                                    ? RemoteButton(
-                                        label: '加载更多',
-                                        icon: Icons.expand_more,
-                                        onPressed: () => _load(more: true),
-                                      )
-                                    : const Text('已经看到这里的全部剧集'),
-                              ),
-                            ),
-                          );
-                        }
                         final padding = constraints.maxWidth < 600
                             ? 16.0
                             : 24.0;
@@ -1502,28 +1360,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _televisionGrid(
-    List<Drama> items,
-    double width, {
-    required String key,
-    ScrollController? controller,
-    Widget? footer,
-  }) {
-    final columns = ((width - 36) / 150).floor().clamp(1, 8);
-    final tileWidth = (width - 36 - (columns - 1) * 14) / columns;
-    return RemoteGrid(
-      key: ValueKey('tv-grid-$key'),
-      itemKeys: items.map((item) => item.id).toList(),
-      columns: columns,
-      itemExtent: DramaTile.extentFor(context, tileWidth - 14) + 14,
-      controller: controller,
-      footer: footer,
-      padding: const EdgeInsets.fromLTRB(18, 2, 18, 18),
-      itemBuilder: (_, index, node, onFocus) =>
-          _catalogTile(items[index], focusNode: node, onFocus: onFocus),
     );
   }
 }

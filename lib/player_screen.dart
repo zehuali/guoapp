@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 
-import 'app_layout.dart';
 import 'app_theme.dart';
 import 'core_bridge.dart';
 import 'danmaku_controller.dart';
@@ -18,7 +16,6 @@ import 'playback_loader.dart';
 import 'playback_preloader.dart';
 import 'playback_recovery.dart';
 import 'playback_preferences.dart';
-import 'playback_stats.dart';
 import 'player_keys.dart';
 import 'player_controls.dart';
 import 'player_interactions.dart';
@@ -26,7 +23,6 @@ import 'playback_engine.dart';
 import 'playback_media_kit.dart';
 import 'playback_player.dart';
 import 'player_menu.dart';
-import 'television_controls.dart';
 import 'widgets.dart';
 import 'sources_screen.dart';
 import 'lan_controller.dart';
@@ -126,9 +122,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   double _aspectRatio = 16 / 9;
   double _resumePosition = 0;
   bool _rotating = false;
-  bool _television = false;
-  bool get _mobile =>
-      !_television && defaultTargetPlatform == TargetPlatform.android;
+  bool get _mobile => defaultTargetPlatform == TargetPlatform.android;
   PlaybackPreferences get _preferences => PlaybackPreferences(
     speed: _speed,
     quality: _requestedQuality,
@@ -165,7 +159,6 @@ class _PlayerScreenState extends State<PlayerScreen>
     _frameMode = preferences.frameMode;
     _hardwareDecoding = preferences.hardwareDecoding;
     _keyMap = preferences.keyMap;
-    if (AppLayout.isTelevisionNow(context)) FrameStats.install();
     _loader = PlaybackLoader(widget.repository);
     _preloader = PlaybackPreloader(widget.repository);
     _danmaku = DanmakuController(widget.repository)
@@ -174,11 +167,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     final factory = widget.playerFactory;
     _player = factory != null
         ? MediaKitPlaybackPlayer(factory())
-        : createPlaybackPlayer(
-            television: AppLayout.isTelevisionNow(context),
-            systemPlayer: widget.store.tvSystemPlayer,
-            platformView: widget.store.tvPlatformView,
-          );
+        : createPlaybackPlayer();
     _interactions = PlayerInteractions(
       player: _player,
       available: () =>
@@ -521,7 +510,6 @@ class _PlayerScreenState extends State<PlayerScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _television = AppLayout.isTelevision(context);
     final orientation = MediaQuery.orientationOf(context);
     if (_lastOrientation != null && _lastOrientation != orientation) {
       _automaticFullscreenSuppressed = false;
@@ -533,7 +521,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   void _scheduleSystemUi() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _closed || (!_mobile && !_television)) return;
+      if (!mounted || _closed || !_mobile) return;
       final fullscreen = _showFullscreen;
       if (_systemFullscreen == fullscreen) return;
       _systemFullscreen = fullscreen;
@@ -939,7 +927,6 @@ class _PlayerScreenState extends State<PlayerScreen>
   }
 
   bool get _showFullscreen =>
-      _television ||
       _fullscreen ||
       (_mobile &&
           !_automaticFullscreenSuppressed &&
@@ -947,7 +934,7 @@ class _PlayerScreenState extends State<PlayerScreen>
           MediaQuery.orientationOf(context) == Orientation.landscape);
 
   Future<void> _rotate() async {
-    if (_rotating || _television) {
+    if (_rotating) {
       return;
     }
     final fullscreen = !_showFullscreen;
@@ -1030,14 +1017,6 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
   }
 
-  Future<void> _toggleFavorite() async {
-    try {
-      await widget.store.toggleFavorite(widget.detail.drama);
-    } catch (_) {
-      _notice('追剧记录未能保存，请检查存储空间后重试');
-    }
-  }
-
   Future<void> _openPanel(PlayerMenuSection section) async {
     if (_panelOpen || _closed) return;
     _interactions.cancel();
@@ -1115,91 +1094,8 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
   }
 
-  void _seek(int seconds) {
-    final desired = _player.state.position + Duration(seconds: seconds);
-    final maxDuration = _player.state.duration;
-    final target = desired < Duration.zero
-        ? Duration.zero
-        : maxDuration > Duration.zero && desired > maxDuration
-        ? maxDuration
-        : desired;
-    unawaited(_seekTo(target));
-  }
-
-  Future<void> _televisionEpisodes(BuildContext context) async {
-    if (_panelOpen || _closed) return;
-    setState(() => _panelOpen = true);
-    int? index;
-    try {
-      index = await showDialog<int>(
-        context: context,
-        builder: (_) => TelevisionEpisodeDialog(
-          episodes: widget.detail.episodes,
-          currentIndex: _index,
-        ),
-      );
-    } finally {
-      if (mounted && !_closed) setState(() => _panelOpen = false);
-    }
-    if (index != null && mounted && !_closed && index != _index) {
-      await _play(index);
-    }
-  }
-
-  Future<void> _televisionSettings(BuildContext context) async {
-    if (_panelOpen || _closed) return;
-    setState(() => _panelOpen = true);
-    TelevisionPlaybackSetting? selection;
-    try {
-      selection = await showDialog<TelevisionPlaybackSetting>(
-        context: context,
-        builder: (_) => AnimatedBuilder(
-          animation: Listenable.merge([_danmaku, _preloader]),
-          builder: (_, _) => TelevisionSettingsDialog(
-            speed: _speed,
-            quality: _requestedQuality,
-            qualities: _plan?.qualities ?? [],
-            favorite: widget.store.isFavorite(widget.detail.drama.id),
-            onFavorite: _toggleFavorite,
-            autoAdvance: _autoAdvance,
-            danmaku: _danmakuEnabled,
-            showDanmaku: widget.detail.drama.source == 'hongguo',
-            danmakuStatus: _danmaku.status,
-            onRetryDanmaku: _danmaku.canRetry ? _danmaku.retry : null,
-            preload: _preloadEnabled,
-            preloadStatus: _preloader.status,
-            frameMode: _frameMode,
-            hardwareDecoding: _hardwareDecoding,
-            actualQuality: _player.state.quality > 0
-                ? _player.state.quality
-                : (_plan?.quality ?? 0),
-            engineInfo: _engineInfo,
-          ),
-        ),
-      );
-    } finally {
-      if (mounted && !_closed) setState(() => _panelOpen = false);
-    }
-    if (selection == null || !mounted || _closed) return;
-    try {
-      await _setPreferences(
-        _preferences.copyWith(
-          speed: selection.speed,
-          quality: selection.quality,
-          autoAdvance: selection.autoAdvance,
-          danmaku: selection.danmaku,
-          preload: selection.preload,
-          frameMode: selection.frameMode,
-          hardwareDecoding: selection.hardwareDecoding,
-        ),
-      );
-    } catch (_) {
-      _notice('播放偏好未能保存，请重试');
-    }
-  }
-
   void _back() {
-    if (_showFullscreen && !_television) {
+    if (_showFullscreen) {
       _rotate();
     } else {
       Navigator.of(context).maybePop();
@@ -1245,15 +1141,13 @@ class _PlayerScreenState extends State<PlayerScreen>
         SystemChrome.setPreferredOrientations(DeviceOrientation.values),
       );
       unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
-    } else if (_television && Platform.isAndroid) {
-      unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
     }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) => Theme(
-    data: _television ? televisionTheme(AppTheme.dark) : AppTheme.dark,
+    data: AppTheme.dark,
     child: AnnotatedRegion<SystemUiOverlayStyle>(
       value: AppTheme.systemBars(Brightness.dark),
       child: Builder(builder: _buildPlayer),
@@ -1265,9 +1159,9 @@ class _PlayerScreenState extends State<PlayerScreen>
     final episode = widget.detail.episodes[_index];
     final fullscreen = _showFullscreen;
     return PopScope(
-      canPop: _television || !fullscreen,
+      canPop: !fullscreen,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && fullscreen && !_television) {
+        if (!didPop && fullscreen) {
           _rotate();
         }
       },
@@ -1279,17 +1173,14 @@ class _PlayerScreenState extends State<PlayerScreen>
         child: Focus(
           focusNode: _playerFocus,
           onKeyEvent: (_, event) {
-            if (_television ||
-                _panelOpen ||
+            if (_panelOpen ||
                 !_playerFocus.hasPrimaryFocus ||
                 !(ModalRoute.of(context)?.isCurrent ?? true)) {
               return KeyEventResult.ignored;
             }
             return _interactions.key(event);
           },
-          autofocus: !_television,
-          canRequestFocus: !_television,
-          skipTraversal: _television,
+          autofocus: true,
           child: Scaffold(
             backgroundColor: Colors.black,
             appBar: fullscreen
@@ -1526,49 +1417,32 @@ class _PlayerScreenState extends State<PlayerScreen>
   Widget _videoPane(BuildContext context, {bool overlayProgress = true}) {
     final title =
         '${widget.detail.drama.title} · 第 ${widget.detail.episodes[_index].number} 集${_plan?.local == true ? ' · 本地' : ''}${widget.detail.episodes[_index].vip ? ' · VIP 试看' : ''}${(_plan?.routeIndex ?? 0) > 0 ? ' · 线路 ${_plan!.routeIndex + 1}' : ''}';
-    final Widget controls = _television
-        ? TelevisionControls(
-            player: _player,
-            title: title,
-            seamless: _seamlessAdvance && _error == null,
-            enabled: !_loading && _error == null,
-            onTogglePlayback: _togglePlayback,
-            onSeek: _seek,
-            onPrevious: _index > 0 ? () => _play(_index - 1) : null,
-            onNext: _index + 1 < widget.detail.episodes.length
-                ? () => _play(_index + 1)
-                : null,
-            onEpisodes: () => _televisionEpisodes(context),
-            onSettings: () => _televisionSettings(context),
-            onBack: _back,
-            onPush: widget.mediaId == null ? _pushToDevice : null,
-          )
-        : PlayerControls(
-            player: _player,
-            interactions: _interactions,
-            enabled: !_loading && _error == null,
-            panelOpen: _panelOpen,
-            seamless: _seamlessAdvance,
-            fullscreen: _showFullscreen,
-            title: title,
-            onTogglePlayback: _togglePlayback,
-            swipeEnabled: _mobile,
-            showProgress: overlayProgress,
-            onFullscreen: _rotate,
-            onFocusSurface: _playerFocus.requestFocus,
-            onSeek: _seekTo,
-            speed: _speed,
-            qualityLabel: _qualityLabel,
-            onEpisodes: () => _openPanel(PlayerMenuSection.episodes),
-            onSpeed: () => _openPanel(PlayerMenuSection.speed),
-            onQuality: () => _openPanel(PlayerMenuSection.quality),
-            onSettings: () => _openPanel(PlayerMenuSection.settings),
-            onPush: widget.mediaId == null ? _pushToDevice : null,
-            onPrevious: _index > 0 ? () => _play(_index - 1) : null,
-            onNext: _index + 1 < widget.detail.episodes.length
-                ? () => _play(_index + 1)
-                : null,
-          );
+    final Widget controls = PlayerControls(
+      player: _player,
+      interactions: _interactions,
+      enabled: !_loading && _error == null,
+      panelOpen: _panelOpen,
+      seamless: _seamlessAdvance,
+      fullscreen: _showFullscreen,
+      title: title,
+      onTogglePlayback: _togglePlayback,
+      swipeEnabled: _mobile,
+      showProgress: overlayProgress,
+      onFullscreen: _rotate,
+      onFocusSurface: _playerFocus.requestFocus,
+      onSeek: _seekTo,
+      speed: _speed,
+      qualityLabel: _qualityLabel,
+      onEpisodes: () => _openPanel(PlayerMenuSection.episodes),
+      onSpeed: () => _openPanel(PlayerMenuSection.speed),
+      onQuality: () => _openPanel(PlayerMenuSection.quality),
+      onSettings: () => _openPanel(PlayerMenuSection.settings),
+      onPush: widget.mediaId == null ? _pushToDevice : null,
+      onPrevious: _index > 0 ? () => _play(_index - 1) : null,
+      onNext: _index + 1 < widget.detail.episodes.length
+          ? () => _play(_index + 1)
+          : null,
+    );
     final layeredControls = Stack(
       fit: StackFit.expand,
       children: [
@@ -1624,7 +1498,7 @@ class _PlayerScreenState extends State<PlayerScreen>
               icon: Icons.play_disabled_rounded,
             ),
           ),
-        if ((_loading || _error != null) && _showFullscreen && !_television)
+        if ((_loading || _error != null) && _showFullscreen)
           SafeArea(
             child: Align(
               alignment: Alignment.topCenter,

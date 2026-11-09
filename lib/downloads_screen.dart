@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'app_layout.dart';
 import 'core_bridge.dart';
 import 'download_collections.dart';
 import 'local_store.dart';
@@ -139,7 +138,6 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
           ),
           actions: [
             TextButton(
-              autofocus: AppLayout.isTelevision(context),
               onPressed: () => Navigator.pop(context, false),
               child: const Text('保留'),
             ),

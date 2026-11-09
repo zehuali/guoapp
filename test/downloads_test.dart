@@ -1,7 +1,6 @@
 import 'package:duanju_app/core_bridge.dart';
 import 'package:duanju_app/detail_screen.dart';
 import 'package:duanju_app/downloads_screen.dart';
-import 'package:duanju_app/home_screen.dart';
 import 'package:duanju_app/local_store.dart';
 import 'package:duanju_app/models.dart';
 import 'package:duanju_app/playback_loader.dart';
@@ -14,7 +13,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fixtures.dart';
 import 'player_fixtures.dart';
-import 'remote_test_helpers.dart';
 
 class DownloadRepository extends FixtureRepository {
   final commands = <String>[];
@@ -375,42 +373,6 @@ void main() {
       expect(repository.onlineCalls, 0);
       await tester.pumpWidget(const SizedBox.shrink());
       await tick(tester);
-    },
-  );
-
-  testWidgets(
-    'TV download navigation and long queue remain usable with only the remote',
-    (tester) async {
-      size(tester, const Size(960, 540));
-      final repository = DownloadRepository();
-      repository.jobs = List.generate(
-        20,
-        (index) => repository.job(index + 1, 'paused'),
-      );
-      await tester.pumpWidget(
-        televisionHost(
-          child: HomeScreen(repository: repository, store: await makeStore()),
-        ),
-      );
-      await tester.pumpAndSettle();
-      focusRemote(tester, find.byKey(const ValueKey('tv-nav-3')));
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.select);
-      await tester.pumpAndSettle();
-      focusRemote(tester, find.byKey(const ValueKey('download-task-1')));
-      await tester.pumpAndSettle();
-      for (var i = 0; i < 12; i++) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-        await tester.pumpAndSettle();
-      }
-      await tester.sendKeyEvent(LogicalKeyboardKey.select);
-      await tester.pumpAndSettle();
-      expect(find.text('测试短剧 · 第 13 集').last, findsOneWidget);
-      await tester.sendKeyEvent(LogicalKeyboardKey.select);
-      await tick(tester);
-      expect(repository.commands.last, 'resume:13');
-      await tester.pumpWidget(const SizedBox.shrink());
-      expect(tester.takeException(), isNull);
     },
   );
 }

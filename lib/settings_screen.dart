@@ -185,28 +185,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                 ),
-              SwitchListTile(
-                key: const ValueKey('tv-player-engine'),
-                contentPadding: EdgeInsets.zero,
-                value: widget.store.tvSystemPlayer,
-                onChanged: (value) => saveUserChange(
-                  context,
-                  () => widget.store.setTvSystemPlayer(value),
-                ),
-                title: const Text('电视使用系统播放器'),
-                subtitle: const Text('默认开启；播放异常时可关闭，改用内置播放器'),
-              ),
-              SwitchListTile(
-                key: const ValueKey('tv-platform-view'),
-                contentPadding: EdgeInsets.zero,
-                value: widget.store.tvPlatformView,
-                onChanged: (value) => saveUserChange(
-                  context,
-                  () => widget.store.setTvPlatformView(value),
-                ),
-                title: const Text('电视画面直通渲染'),
-                subtitle: const Text('默认开启，画面交给系统视图输出；出现黑屏或错位可关闭'),
-              ),
               ListTile(
                 key: const ValueKey('theme-setting'),
                 leading: const Icon(Icons.palette_outlined),

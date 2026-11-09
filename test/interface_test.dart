@@ -130,10 +130,9 @@ void main() {
   });
 
   for (final layout in [
-    (const Size(390, 844), 1.0, false),
-    (const Size(320, 844), 2.0, false),
-    (const Size(1280, 800), 1.0, false),
-    (const Size(960, 540), 1.0, true),
+    (const Size(390, 844), 1.0),
+    (const Size(320, 844), 2.0),
+    (const Size(1280, 800), 1.0),
   ]) {
     testWidgets('posters align across catalog and saved pages at $layout', (
       tester,
@@ -153,16 +152,12 @@ void main() {
           ),
         );
       }
-      await tester.pumpWidget(
-        DuanjuApp(repository: repository, store: store, television: layout.$3),
-      );
+      await tester.pumpWidget(DuanjuApp(repository: repository, store: store));
       await tester.pumpAndSettle();
       Size? catalogSize;
       for (var tab = 0; tab < 3; tab++) {
         if (tab > 0) {
-          final destination = layout.$3
-              ? find.byKey(ValueKey('tv-nav-$tab'))
-              : layout.$1.width < 840
+          final destination = layout.$1.width < 840
               ? find.byKey(ValueKey('bottom-nav-$tab'))
               : find.descendant(
                   of: find.byType(NavigationRail),

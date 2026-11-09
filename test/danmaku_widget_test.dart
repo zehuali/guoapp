@@ -7,7 +7,6 @@ import 'package:duanju_app/local_store.dart';
 import 'package:duanju_app/player_menu.dart';
 import 'package:duanju_app/player_screen.dart';
 import 'package:duanju_app/playback_preferences.dart';
-import 'package:duanju_app/television_controls.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
@@ -296,42 +295,6 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('player-danmaku-enabled')));
       await settle(tester);
       expect(chosen?.danmaku, isFalse);
-      expect(tester.takeException(), isNull);
-      TelevisionPlaybackSetting? selected;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => TextButton(
-                onPressed: () async {
-                  selected = await showDialog<TelevisionPlaybackSetting>(
-                    context: context,
-                    builder: (_) => TelevisionSettingsDialog(
-                      speed: 1,
-                      quality: 0,
-                      qualities: const [],
-                      favorite: false,
-                      onFavorite: () {},
-                      showDanmaku: true,
-                      danmaku: true,
-                      danmakuStatus: '这段暂无弹幕',
-                    ),
-                  );
-                },
-                child: const Text('打开电视设置'),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.tap(find.text('打开电视设置'));
-      await settle(tester);
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('tv-danmaku-enabled')),
-      );
-      await tester.tap(find.byKey(const ValueKey('tv-danmaku-enabled')));
-      await settle(tester);
-      expect(selected?.danmaku, isFalse);
       expect(tester.takeException(), isNull);
     },
   );
