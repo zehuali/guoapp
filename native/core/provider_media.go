@@ -210,22 +210,27 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 		}
 	}
 	if chapter.PageURL != "" && (chapter.Source == sourceHuangguoVideo || chapter.Source == sourceHuangguoAI && playbackAPIErr != nil) {
-		responses := &playbackResponseURLs{}
-		pageContext := context.WithValue(ctx, playbackResponseURLsKey{}, responses)
-		body, err := d.fetchProviderText(pageContext, chapter.PageURL, media.Referer)
-		if err != nil {
-			return providerMedia{}, err
-		}
-		pageURL := chapter.PageURL
-		if actual, ok := responses.values.Load(chapter.PageURL); ok {
-			pageURL = actual.(string)
-		}
-		if chapter.Source == sourceHuangguoAI {
-			media.URL = parseAIVideoURL(body, pageURL)
+		if chapter.Source == sourceHuangguoVideo && isProviderHTTPMediaURL(chapter.VideoURL) {
+			media.URL = chapter.VideoURL
+			media.Referer = chapter.PageURL
 		} else {
-			media.URL = parseDataHLS(body, pageURL)
+			responses := &playbackResponseURLs{}
+			pageContext := context.WithValue(ctx, playbackResponseURLsKey{}, responses)
+			body, err := d.fetchProviderText(pageContext, chapter.PageURL, media.Referer)
+			if err != nil {
+				return providerMedia{}, err
+			}
+			pageURL := chapter.PageURL
+			if actual, ok := responses.values.Load(chapter.PageURL); ok {
+				pageURL = actual.(string)
+			}
+			if chapter.Source == sourceHuangguoAI {
+				media.URL = parseAIVideoURL(body, pageURL)
+			} else {
+				media.URL = parseDataHLS(body, pageURL)
+			}
+			media.Referer = pageURL
 		}
-		media.Referer = pageURL
 	}
 	if !isProviderHTTPMediaURL(media.URL) {
 		if playbackAPIErr != nil {
