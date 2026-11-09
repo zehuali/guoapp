@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	huangdouBaseURL     = "https://tideember.cc"
+	huangdouBaseURL     = "https://iwgsqufx.cc"
+	huangdouBackupURL   = "https://eyeonneb.cc"
 	huangdouVersion     = "2.0.0"
 	huangdouDeviceType  = "web"
 	huangdouPlatformKey = "7961beb44246e3012ce228d6b5ced05a"
@@ -144,7 +145,7 @@ func (c *huangdouAPIClient) call(ctx context.Context, path string, data map[stri
 			return lastErr
 		}
 		if c.host == huangdouBaseURL && c.d.cfg.HuangdouURL == "" {
-			c.host = "https://xqjurgek.top"
+			c.host = huangdouBackupURL
 		}
 	}
 	return lastErr
