@@ -2,6 +2,8 @@ package core
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -23,6 +25,15 @@ type providerMedia struct {
 	Width       int
 	Height      int
 	Variants    []providerMedia
+	Trace       string
+}
+
+func providerMediaFingerprint(raw string) string {
+	if raw == "" {
+		return "empty"
+	}
+	digest := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(digest[:8])
 }
 
 func (d *Downloader) providerBaseURL(source string) string {
@@ -257,6 +268,16 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 		media.Playlist = playlist
 		media.URL = finalURL
 		media.Variants = providerHLSVariants(media, finalURL, playlist)
+	}
+	if chapter.Source == sourceHuangguoVideo {
+		variants := make([]string, 0, len(media.Variants))
+		for _, variant := range media.Variants {
+			variants = append(variants, fmt.Sprintf("%d:%s", variant.Quality, providerMediaFingerprint(variant.URL)))
+		}
+		media.Trace = fmt.Sprintf("source=%s title=%q episode=%s page=%s listed=%s resolved=%s variants=%v", chapter.Source, task.DramaTitle, chapter.EpisodeString(task.Index), providerMediaFingerprint(chapter.PageURL), providerMediaFingerprint(chapter.VideoURL), providerMediaFingerprint(media.URL), variants)
+		for index := range media.Variants {
+			media.Variants[index].Trace = media.Trace
+		}
 	}
 	return media, nil
 }

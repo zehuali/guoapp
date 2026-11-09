@@ -121,6 +121,7 @@ type nativeCatalogResult struct {
 }
 
 type nativePlan struct {
+	DebugTrace      string            `json:"debugTrace,omitempty"`
 	ExpiresAt       int64             `json:"expiresAt,omitempty"`
 	PrefetchedBytes int64             `json:"prefetchedBytes,omitempty"`
 	DanmakuID       string            `json:"danmakuId,omitempty"`

@@ -812,6 +812,8 @@ class _PlayerScreenState extends State<PlayerScreen>
       }
       print('[load] 解析 ${watch.elapsedMilliseconds}ms 预热=${warmed != null}');
       final plan = prepared;
+      if (plan.debugTrace.isNotEmpty)
+        print('[playback-trace] ${plan.debugTrace}');
       await _serialize(() async {
         if (_closed || ticket != _generation) {
           await widget.repository.release(plan.session);

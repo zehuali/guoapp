@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"sort"
 	"time"
 )
@@ -91,8 +92,9 @@ func (engine *nativeEngine) nativeOpenPlayback(ctx context.Context, choice nativ
 		})
 	}
 	plan := nativePlan{
-		DanmakuID: choice.danmakuVideo,
-		URL:       media.URL, Headers: headers,
+		DebugTrace: media.Trace + fmt.Sprintf(" selected=%s quality=%d", providerMediaFingerprint(media.URL), media.Quality),
+		DanmakuID:  choice.danmakuVideo,
+		URL:        media.URL, Headers: headers,
 		Key: hex.EncodeToString(media.CENCKey), Quality: media.Quality, Qualities: choice.qualities,
 		RouteIndex: choice.index, RouteCount: len(choice.media), Session: hex.EncodeToString(tokenBytes),
 		Sources: sources,

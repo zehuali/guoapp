@@ -252,6 +252,7 @@ class CatalogPage {
 class PlaybackPlan {
   const PlaybackPlan({
     required this.url,
+    this.debugTrace = '',
     this.headers = const {},
     this.decryptionKey = '',
     this.quality = 0,
@@ -266,6 +267,7 @@ class PlaybackPlan {
     this.sources = const [],
   });
   final String url;
+  final String debugTrace;
   final Map<String, String> headers;
   final String decryptionKey;
   final int quality;
@@ -281,6 +283,7 @@ class PlaybackPlan {
   bool get hasAlternative => session.isNotEmpty && routeIndex + 1 < routeCount;
   factory PlaybackPlan.fromJson(Map<String, dynamic> json) => PlaybackPlan(
     url: json['url'] as String? ?? '',
+    debugTrace: json['debugTrace'] as String? ?? '',
     local: json['local'] == true,
     headers: (json['headers'] as Map? ?? {}).map(
       (key, value) => MapEntry(key.toString(), value.toString()),
