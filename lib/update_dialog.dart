@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import 'app_layout.dart';
@@ -32,9 +30,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
     if (!AppUpdateService.supported) {
       setState(() {
         _busy = false;
-        _status = Platform.isIOS
-            ? 'iOS 版本请通过 App Store 或自签工具更新'
-            : '当前平台不支持应用内更新';
+        _status = '当前平台不支持应用内更新';
       });
       return;
     }
@@ -79,11 +75,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
       setState(() {
         _busy = false;
         _progress = null;
-        _status = started
-            ? Platform.isWindows
-                  ? '已下载到 ${file.path}，解压覆盖原目录即可升级'
-                  : '已开始安装，按提示确认即可'
-            : '无法自动安装，请到 GitHub Release 手动下载';
+        _status = started ? '已开始安装，按提示确认即可' : '无法自动安装，请到 GitHub Release 手动下载';
       });
     } catch (error) {
       if (!mounted) return;
@@ -154,10 +146,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
           child: const Text('关闭'),
         ),
         if (update != null && !_busy)
-          FilledButton(
-            onPressed: _download,
-            child: Text(Platform.isWindows ? '下载更新包' : '下载并安装'),
-          ),
+          FilledButton(onPressed: _download, child: const Text('下载并安装')),
       ],
     );
   }

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:window_manager/window_manager.dart';
 
 import 'app_layout.dart';
 import 'app_theme.dart';
@@ -129,9 +128,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   bool _rotating = false;
   bool _television = false;
   bool get _mobile =>
-      !_television &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS);
+      !_television && defaultTargetPlatform == TargetPlatform.android;
   PlaybackPreferences get _preferences => PlaybackPreferences(
     speed: _speed,
     quality: _requestedQuality,
@@ -963,9 +960,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       _automaticFullscreenSuppressed = !fullscreen;
     });
     try {
-      if (Platform.isWindows) {
-        await windowManager.setFullScreen(fullscreen);
-      } else if (_mobile) {
+      if (_mobile) {
         if (fullscreen) {
           await SystemChrome.setPreferredOrientations(
             _aspectRatio >= 1
@@ -1245,9 +1240,7 @@ class _PlayerScreenState extends State<PlayerScreen>
         await _player.dispose();
       }),
     );
-    if (Platform.isWindows) {
-      unawaited(windowManager.setFullScreen(false));
-    } else if (_mobile) {
+    if (_mobile) {
       unawaited(
         SystemChrome.setPreferredOrientations(DeviceOrientation.values),
       );

@@ -402,9 +402,7 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
                     title: const Text('本机地址与连接帮助'),
                     childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     children: [
-                      const Text(
-                        '两台设备都需开启设备互联并保持前台。发现失败时，可在另一端输入下列地址；Windows 需允许本应用通过专用网络防火墙。',
-                      ),
+                      const Text('两台设备都需开启设备互联并保持前台。发现失败时，可在另一端输入下列地址。'),
                       for (final address in link.local!.addresses)
                         ListTile(
                           title: SelectableText(address),

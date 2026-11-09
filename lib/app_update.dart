@@ -34,14 +34,14 @@ class AppUpdateService {
   static const _channel = MethodChannel('duanju/update');
   static const _userAgent = 'guoapp-updater';
 
-  static bool get supported => Platform.isAndroid || Platform.isWindows;
+  static bool get supported => Platform.isAndroid;
 
   static Future<AppUpdate?> check() async {
     if (!supported) return null;
     final device = await AppDevice.detect();
     final local = _Version.parse(device.version);
     final abi = device.abi.isNotEmpty ? device.abi : 'arm64-v8a';
-    final suffix = Platform.isWindows ? '-windows-x64.zip' : '-$abi.apk';
+    final suffix = '-$abi.apk';
     final path = '/repos/$_repo/releases?per_page=20';
     String raw;
     try {
@@ -145,10 +145,6 @@ class AppUpdateService {
         'path': file.path,
       });
       return installed ?? false;
-    }
-    if (Platform.isWindows) {
-      final result = await Process.run('explorer', ['/select,${file.path}']);
-      return result.exitCode == 0;
     }
     return false;
   }

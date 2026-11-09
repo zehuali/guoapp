@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:window_manager/window_manager.dart';
 
 import 'core_bridge.dart';
 import 'app_layout.dart';
@@ -15,25 +14,17 @@ import 'home_screen.dart';
 import 'local_store.dart';
 import 'profiles_screen.dart';
 import 'media_library.dart';
-import 'package_smoke.dart';
 import 'lan_controller.dart';
 import 'webdav_sync.dart';
 import 'player_screen.dart';
 
-Future<void> main(List<String> arguments) async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (Platform.isAndroid) {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(AppTheme.systemBars(Brightness.dark));
   }
-  if (Platform.isWindows) {
-    await windowManager.ensureInitialized();
-  }
   MediaKit.ensureInitialized();
-  if (Platform.isWindows && arguments.firstOrNull == '--package-smoke') {
-    await runPackageSmoke(arguments);
-    return;
-  }
   runApp(const AppBootstrap());
 }
 
@@ -77,22 +68,6 @@ class _AppBootstrapState extends State<AppBootstrap>
         unawaited(WebdavSyncService.instance.autoSync(current));
       }
     }
-    if (!Platform.isIOS) return;
-    final library = MediaLibrary.current;
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached) {
-      if (library != null) {
-        library.suspended = true;
-        unawaited(library.cancel());
-      }
-      unawaited(
-        NativeRepository(
-          background: true,
-        ).controlDownloads('pauseAll').catchError((Object _) {}),
-      );
-    } else if (state == AppLifecycleState.resumed) {
-      if (library != null) library.suspended = false;
-    }
   }
 
   Future<void> _initialize() async {
@@ -112,11 +87,7 @@ class _AppBootstrapState extends State<AppBootstrap>
           final link = LanController(
             repository,
             store!,
-            kind: device.television
-                ? 'tv'
-                : Platform.isWindows
-                ? 'computer'
-                : 'phone',
+            kind: device.television ? 'tv' : 'phone',
           );
           LanController.current = link;
           link.openPlayback = (request) async {
